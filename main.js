@@ -1,5 +1,7 @@
 var getMedia = require('getusermedia')
 var multiplex = require('multiplex')
+var videostream = require('videostream')
+var through = require('through2')
 
 var Worker = require('webworkify')
 var worker = Worker(require('./worker.js'))
@@ -8,8 +10,7 @@ worker.addEventListener('message', function (ev) {
     state.recordId = ev.data.id
     update()
   } else if (state.playing && ev.data.type === 'play.data') {
-    //...
-    update()
+    playStreams[ev.data.index].write(ev.data.buffer)
   }
 })
 
@@ -22,18 +23,39 @@ var state = {
   recording: false,
   playing: false
 }
-var recorder = null
 
+var recorder = null
+var playStreamIndex = 0
+var playStreams = {}
+
+if (state.playId) createPlayer(state.playId)
 window.addEventListener('hashchange', function () {
   var h = location.hash.slice(1)
   if (/^#\w{16,}/.test(location.hash)
   && h !== state.recordId && h !== state.playId) {
-    state.playId = h
-    state.playing = true
-    worker.postMessage({ type: 'play.start', id: state.playId })
+    createPlayer(h)
     update()
   }
 })
+
+function createPlayer (id) {
+  state.playId = id
+  state.playing = true
+  worker.postMessage({ type: 'play.start', id: id})
+  videostream({ createReadStream: createReadStream }, video)
+
+  function createReadStream (opts) {
+    var index = playStreamIndex++
+    playStreams[index] = through()
+    worker.postMessage({
+      type: 'play.stream',
+      start: opts.start,
+      end: opts.end,
+      index: index
+    })
+    return playStreams[index]
+  }
+}
 
 function update () {
   html.update(root, render(state))

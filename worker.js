@@ -24,6 +24,19 @@ module.exports = function (self) {
       tobuf(ev.data.blob, function (buf) {
         writeQueue.push(seq, buf)
       })
+    } else if (ev.data.type === 'play.stream') {
+      var stream = core.createReadStream({
+        start: ev.data.start,
+        end: ev.data.end
+      })
+      var index = ev.data.index
+      stream.on('data', function (buf) {
+        self.postMessage({
+          type: 'play.data',
+          index: index,
+          buffer: buf
+        })
+      })
     }
   })
 }
