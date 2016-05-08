@@ -37,24 +37,27 @@ var playStreamIndex = 0
 var playStreams = {}
 var peers = {}
 
-if (state.playId) createPlayer(state.playId)
-window.addEventListener('hashchange', function () {
+window.addEventListener('hashchange', onhash)
+if (state.playId) onhash()
+
+function onhash () {
   var h = location.hash.slice(1)
   if (/^#\w{16,}/.test(location.hash)
   && h !== state.recordId && h !== state.playId) {
-    createPlayer(h)
+    var createReadStream = createPlayer(h)
     update()
+    var video = root.querySelector('video')
+    videostream({ createReadStream: createReadStream }, video)
   }
-})
+}
 
 function createPlayer (id) {
   state.playId = id
   state.playing = true
   worker.postMessage({ type: 'play.start', id: id })
-  videostream({ createReadStream: createReadStream }, video)
   createSwarm(id)
 
-  function createReadStream (opts) {
+  return function createReadStream (opts) {
     var index = playStreamIndex++
     playStreams[index] = through()
     worker.postMessage({
@@ -78,7 +81,9 @@ function render (state) {
 }
 
 function renderPlayer (state) {
-  return html`<div>${video}</div>`
+  return html`<div>
+    <video width="400" height="300" autoplay></video>
+  </div>`
 }
 
 function renderRecorder(state) {
