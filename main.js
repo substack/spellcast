@@ -15,6 +15,7 @@ worker.addEventListener('message', function (ev) {
     createSwarm(ev.data.id)
     update()
   } else if (state.playing && ev.data.type === 'play.data') {
+    console.log('PLAYER', ev.data.buffer.length)
     playStreams[ev.data.index].write(Buffer(ev.data.buffer))
   } else if (ev.data.type === 'peer.data') {
     peers[ev.data.peerId].write(Buffer(ev.data.buffer))
@@ -25,7 +26,7 @@ var html = require('yo-yo')
 var root = document.querySelector('#content')
 
 var state = {
-  playId: /^#\w{16,}/.test(location.hash) ? location.hash.slice(1) : null,
+  playId: null,
   recordId: null,
   videoSource: null,
   recording: false,
@@ -38,12 +39,13 @@ var playStreams = {}
 var peers = {}
 
 window.addEventListener('hashchange', onhash)
-if (state.playId) onhash()
+if (/^#[0-9a-f]{16,}$/.test(location.hash)) onhash()
 
 function onhash () {
   var h = location.hash.slice(1)
-  if (/^#\w{16,}/.test(location.hash)
+  if (/^[0-9a-f]{16,}$/.test(h)
   && h !== state.recordId && h !== state.playId) {
+    console.log('create player')
     var createReadStream = createPlayer(h)
     update()
     var video = root.querySelector('video')
@@ -134,13 +136,13 @@ function renderRecorder(state) {
 }
 
 function createSwarm (id) {
+  console.log('SWARM', id)
   var swarm = webrtcSwarm(signalhub('spellcast.' + id, hubs))
   swarm.on('peer', function (peer, peerId) {
     console.log('PEER', peerId)
     peers[peerId] = peer
     worker.postMessage({ type: 'peer.start', peerId: peerId })
     peer.on('data', function (buf) {
-      console.log('PEER DATA ' + buf.length)
       worker.postMessage({ type: 'peer.data', peerId: peerId, buffer: buf })
     })
     onend(peer, function () {

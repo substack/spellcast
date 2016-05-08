@@ -38,7 +38,6 @@ module.exports = function (self) {
     } else if (mode === 'record' && ev.data.type === 'record.data') {
       var seq = writeSeq++
       tobuf(ev.data.blob, function (buf) {
-        console.log('DATA', buf.length)
         writeQueue.push(seq, buf)
       })
     } else if (ev.data.type === 'play.stream') {
