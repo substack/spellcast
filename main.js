@@ -125,7 +125,7 @@ function renderRecorder(state) {
 }
 
 function createSwarm (id) {
-  var swarm = webrtcSwarm(signalhub('sudocast.' + id, hubs))
+  var swarm = webrtcSwarm(signalhub('spellcast.' + id, hubs))
   swarm.on('peer', function (peer, peerId) {
     console.log('PEER', peerId)
     peers[peerId] = peer
