@@ -7,18 +7,18 @@ var hubs = [ 'https://signalhub.mafintosh.com' ]
 
 module.exports = function (self) {
   var mode = null
-  var writeStream, writeQueue, writeSeq = 0
+  var writeQueue, writeSeq = 0
   var swarms = {}
 
   self.addEventListener('message', function (ev) {
     if (ev.data.type === 'record.start') {
-      writeStream = core.createWriteStream()
+      var stream = core.createWriteStream()
       writeQueue = new Queue(function (buf, next) {
-        writeStream.write(buf)
+        stream.write(buf)
         next()
       }, { concurrency: 10 })
       mode = 'record'
-      var id = writeStream.publicId.toString('hex')
+      var id = stream.publicId.toString('hex')
       self.postMessage({ type: 'record.info', id: id })
     } else if (ev.data.type === 'peer.start') {
       var stream = core.replicate({ encrypt: false })
@@ -38,6 +38,7 @@ module.exports = function (self) {
     } else if (mode === 'record' && ev.data.type === 'record.data') {
       var seq = writeSeq++
       tobuf(ev.data.blob, function (buf) {
+        console.log('DATA', buf.length)
         writeQueue.push(seq, buf)
       })
     } else if (ev.data.type === 'play.stream') {

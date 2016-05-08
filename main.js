@@ -24,6 +24,7 @@ worker.addEventListener('message', function (ev) {
 var html = require('yo-yo')
 var root = document.querySelector('#content')
 var video = html`<video width="400" height="300"></video>`
+
 var state = {
   playId: /^#\w{16,}/.test(location.hash) ? location.hash.slice(1) : null,
   recordId: null,
@@ -113,7 +114,7 @@ function renderRecorder(state) {
       recorder.addEventListener('dataavailable', function (ev) {
         worker.postMessage({ type: 'record.data', blob: ev.data })
       })
-      recorder.start()
+      recorder.start(1000)
       update()
     })
   }
