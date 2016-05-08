@@ -23,11 +23,11 @@ worker.addEventListener('message', function (ev) {
 
 var html = require('yo-yo')
 var root = document.querySelector('#content')
-var video = html`<video width="400" height="300"></video>`
 
 var state = {
   playId: /^#\w{16,}/.test(location.hash) ? location.hash.slice(1) : null,
   recordId: null,
+  videoSource: null,
   recording: false,
   playing: false
 }
@@ -94,7 +94,10 @@ function renderRecorder(state) {
         : html`<button onclick=${startCast}>start webcast</button>`
       }
     </div>
-    <div>${video}</div>
+    <div>
+      <video width="400" height="300" src=${state.videoSource} autoplay>
+      </video>
+    </div>
   </div>`
 
   function startCast () {
@@ -107,8 +110,7 @@ function renderRecorder(state) {
 
     getMedia({ video: true, audio: false }, function (err, media) {
       if (err) return console.error(err)
-      video.src = URL.createObjectURL(media)
-      video.play()
+      state.videoSource = URL.createObjectURL(media)
 
       recorder = new MediaRecorder(media)
       recorder.addEventListener('dataavailable', function (ev) {
