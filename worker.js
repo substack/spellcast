@@ -2,15 +2,13 @@ var hypercore = require('hypercore')
 var level = require('level-browserify')
 var core = hypercore(level('hypercore'))
 var Queue = require('ordered-queue')
-var wswarm = require('webrtc-swarm')
-var signalhub = require('signalhub')
 
 var hubs = [ 'https://signalhub.mafintosh.com' ]
 
 module.exports = function (self) {
   var mode = null
   var writeStream, writeQueue, writeSeq = 0
-  var swarm
+  var swarms = {}
 
   self.addEventListener('message', function (ev) {
     if (ev.data.type === 'record.start') {
@@ -20,12 +18,23 @@ module.exports = function (self) {
         next()
       }, { concurrency: 10 })
       mode = 'record'
-
       var id = writeStream.publicId.toString('hex')
-      createSwarm(id)
       self.postMessage({ type: 'record.info', id: id })
-    } else if (ev.data.type === 'play.start') {
-      createSwarm(ev.data.id)
+    } else if (ev.data.type === 'peer.start') {
+      var stream = core.replicate({ encrypt: false })
+      var peerId = ev.data.peerId
+      swarms[peerId] = stream
+      stream.on('data', function (buf) {
+        self.postMessage({
+          type: 'peer.data',
+          peerId: peerId,
+          buffer: buf
+        })
+      })
+    } else if (ev.data.type === 'peer.data') {
+      swarms[ev.data.peerId].write(Buffer(ev.data.buffer))
+    } else if (ev.data.type === 'peer.end') {
+      swarms[ev.data.peerId].end()
     } else if (mode === 'record' && ev.data.type === 'record.data') {
       var seq = writeSeq++
       tobuf(ev.data.blob, function (buf) {
@@ -33,6 +42,7 @@ module.exports = function (self) {
       })
     } else if (ev.data.type === 'play.stream') {
       var stream = core.createReadStream({
+        live: true,
         start: ev.data.start,
         end: ev.data.end
       })
@@ -54,12 +64,4 @@ function tobuf (blob, cb) {
     cb(Buffer(new Uint8Array(r.result)))
   })
   r.readAsArrayBuffer(blob)
-}
-
-function createSwarm (id) {
-  swarm = wswarm(signalhub('sudocast.' + id, hubs))
-  swarm.on('peer', function (peer, peerId) {
-    console.log('PEER', peerId)
-    peer.pipe(core.replicate()).pipe(peer)
-  })
 }

@@ -2,15 +2,23 @@ var getMedia = require('getusermedia')
 var multiplex = require('multiplex')
 var videostream = require('videostream')
 var through = require('through2')
+var webrtcSwarm = require('webrtc-swarm')
+var signalhub = require('signalhub')
+var onend = require('end-of-stream')
+
+var hubs = [ 'https://signalhub.mafintosh.com' ]
 
 var Worker = require('webworkify')
 var worker = Worker(require('./worker.js'))
 worker.addEventListener('message', function (ev) {
   if (ev.data.type === 'record.info') {
     state.recordId = ev.data.id
+    createSwarm(ev.data.id)
     update()
   } else if (state.playing && ev.data.type === 'play.data') {
-    playStreams[ev.data.index].write(ev.data.buffer)
+    playStreams[ev.data.index].write(Buffer(ev.data.buffer))
+  } else if (ev.data.type === 'peer.data') {
+    peers[ev.data.peerId].write(Buffer(ev.data.buffer))
   }
 })
 
@@ -27,6 +35,7 @@ var state = {
 var recorder = null
 var playStreamIndex = 0
 var playStreams = {}
+var peers = {}
 
 if (state.playId) createPlayer(state.playId)
 window.addEventListener('hashchange', function () {
@@ -41,8 +50,9 @@ window.addEventListener('hashchange', function () {
 function createPlayer (id) {
   state.playId = id
   state.playing = true
-  worker.postMessage({ type: 'play.start', id: id})
+  worker.postMessage({ type: 'play.start', id: id })
   videostream({ createReadStream: createReadStream }, video)
+  createSwarm(id)
 
   function createReadStream (opts) {
     var index = playStreamIndex++
@@ -113,4 +123,19 @@ function renderRecorder(state) {
     state.recording = false
     update()
   }
+}
+
+function createSwarm (id) {
+  var swarm = webrtcSwarm(signalhub('sudocast.' + id, hubs))
+  swarm.on('peer', function (peer, peerId) {
+    console.log('PEER', peerId)
+    peers[peerId] = peer
+    worker.postMessage({ type: 'peer.start', peerId: peerId })
+    peer.on('data', function (buf) {
+      worker.postMessage({ type: 'peer.data', peerId: peerId, buffer: buf })
+    })
+    onend(peer, function () {
+      worker.postMessage({ type: 'peer.end', peerId: peerId })
+    })
+  })
 }

@@ -5,6 +5,7 @@
     "watch": "watchify main.js -o public/bundle.js -dv"
   },
   "dependencies": {
+    "end-of-stream": "^1.1.0",
     "hypercore": "^2.1.3",
     "ordered-queue": "^0.2.0",
     "signalhub": "^4.3.2",
