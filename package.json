@@ -1,12 +1,16 @@
 {
+  "name": "sudocast",
+  "version": "1.0.0",
   "scripts": {
     "watch": "watchify main.js -o public/bundle.js -dv"
   },
   "dependencies": {
     "hypercore": "^2.1.3",
     "ordered-queue": "^0.2.0",
+    "signalhub": "^4.3.2",
     "through2": "^2.0.1",
     "videostream": "^2.3.0",
+    "webrtc-swarm": "^2.4.0",
     "webworkify": "^1.1.0",
     "yo-yo": "^1.1.1"
   }
