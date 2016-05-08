@@ -62,6 +62,7 @@ function createPlayer (id) {
     playStreams[index] = through()
     worker.postMessage({
       type: 'play.stream',
+      peerId: id,
       start: opts.start,
       end: opts.end,
       index: index
@@ -139,6 +140,7 @@ function createSwarm (id) {
     peers[peerId] = peer
     worker.postMessage({ type: 'peer.start', peerId: peerId })
     peer.on('data', function (buf) {
+      console.log('PEER DATA ' + buf.length)
       worker.postMessage({ type: 'peer.data', peerId: peerId, buffer: buf })
     })
     onend(peer, function () {

@@ -42,7 +42,7 @@ module.exports = function (self) {
         writeQueue.push(seq, buf)
       })
     } else if (ev.data.type === 'play.stream') {
-      var stream = core.createReadStream({
+      var stream = core.createReadStream(ev.data.peerId, {
         live: true,
         start: ev.data.start,
         end: ev.data.end
