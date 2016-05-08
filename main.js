@@ -1,6 +1,7 @@
 var getMedia = require('getusermedia')
 var hypercore = require('hypercore')
 var multiplex = require('multiplex')
+var Queue = require('ordered-queue')
 
 var level = require('level-browserify')
 var core = hypercore(level('hypercore'))
@@ -18,15 +19,18 @@ getMedia({ video: true, audio: false }, function (err, media) {
   var stream = core.createWriteStream()
   var id = stream.publicId.toString('hex')
   console.log('id=', id)
-  var inorder = Order()
+
+  var queue = new Queue(function (buf, next) {
+    stream.write(buf)
+    next()
+  }, { concurrency: 10 })
 
   var i = 0
   rec.addEventListener('dataavailable', function (ev) {
-    var i_ = i++
-    tobuf(ev.data, inorder(function (buf) {
-      console.log('buf', i_, buf.length)
-      stream.write(buf)
-    }))
+    var index = i++
+    tobuf(ev.data, function (buf) {
+      queue.push(index, buf)
+    })
   })
   rec.start()
 })
@@ -37,21 +41,4 @@ function tobuf (blob, cb) {
     cb(Buffer(new Uint8Array(r.result)))
   })
   r.readAsArrayBuffer(blob)
-}
-
-function Order () {
-  var queue = []
-  var args = []
-  var these = []
-  return function (cb) {
-    var i = queue.length
-    queue[i] = cb
-    return function () {
-      args[i] = arguments
-      these[i] = this
-      while (args[0]) {
-        queue.shift().apply(these.shift(), args.shift())
-      }
-    }
-  }
 }
