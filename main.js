@@ -1,5 +1,4 @@
 var getMedia = require('getusermedia')
-var multiplex = require('multiplex')
 var videostream = require('videostream')
 var through = require('through2')
 var webrtcSwarm = require('webrtc-swarm')
