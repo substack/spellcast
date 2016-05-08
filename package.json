@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "watch": "watchify main.js -o public/bundle.js -dv"
+  },
+  "dependencies": {
+    "hypercore": "^2.1.3"
+  }
+}
