@@ -18,7 +18,7 @@ module.exports = function (self) {
         next()
       }, { concurrency: 10 })
       mode = 'record'
-      var id = stream.publicId.toString('hex')
+      var id = stream.key.toString('hex')
       feed = stream.feed
       self.postMessage({ type: 'record.info', id: id })
  
