@@ -1,5 +1,4 @@
 var getMedia = require('getusermedia')
-var videostream = require('videostream')
 var through = require('through2')
 var webrtcSwarm = require('webrtc-swarm')
 var signalhub = require('signalhub')
@@ -15,7 +14,7 @@ worker.addEventListener('message', function (ev) {
     createSwarm(ev.data.id)
     update()
   } else if (state.playing && ev.data.type === 'play.data') {
-    console.log('PLAYER', ev.data.buffer.length)
+    console.log('PLAY DATA', ev.data.buffer.length)
     playStreams[ev.data.index].write(Buffer(ev.data.buffer))
   } else if (ev.data.type === 'peer.data') {
     peers[ev.data.peerId].write(Buffer(ev.data.buffer))
@@ -45,21 +44,58 @@ function onhash () {
   var h = location.hash.slice(1)
   if (/^[0-9a-f]{16,}$/.test(h)
   && h !== state.recordId && h !== state.playId) {
-    console.log('create player')
     var createReadStream = createPlayer(h)
     update()
-    var video = root.querySelector('video')
-    videostream({ createReadStream: createReadStream }, video)
   }
 }
 
 function createPlayer (id) {
   state.playId = id
   state.playing = true
+  //var codec = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"'
+  //var codec = 'video/mp4; codecs="avc1.64001E"'
+  var codec = 'video/webm; codecs="vp8"'
+  var media = new MediaSource
+  state.videoSource = URL.createObjectURL(media)
+  console.log('on source open', media.readyState)
+  media.addEventListener('sourceopen', onopen)
+  media.addEventListener('sourceended', function () {
+    console.log('SOURCE END')
+  })
+  media.addEventListener('sourceclose', function () {
+    console.log('SOURCE CLOSE')
+  })
+
+  update()
+
   worker.postMessage({ type: 'play.start', id: id })
   createSwarm(id)
 
-  return function createReadStream (opts) {
+  function onopen (ev) {
+    console.log('OPEN')
+    var source = media.addSourceBuffer(codec)
+    source.addEventListener('update', function (ev) {
+      console.log('UPDATE', ev)
+      if (queue.length > 0 && !source.updating) {
+        source.appendBuffer(queue.shift())
+      }
+    })
+
+    var queue = []
+    var stream = createReadStream()
+    stream.pipe(through(function (buf, enc, next) {
+      console.log('APPEND', buf.length)
+      if (source.updating || queue.length > 0) {
+        queue.push(buf)
+      } else {
+        source.appendBuffer(buf)
+      }
+      next()
+    }))
+  }
+
+  function createReadStream (opts) {
+    if (!opts) opts = {}
     var index = playStreamIndex++
     playStreams[index] = through()
     worker.postMessage({
@@ -85,7 +121,7 @@ function render (state) {
 
 function renderPlayer (state) {
   return html`<div>
-    <video width="400" height="300" autoplay></video>
+    <video width="400" height="300" src=${state.videoSource} autoplay></video>
   </div>`
 }
 
@@ -121,6 +157,8 @@ function renderRecorder(state) {
       state.videoSource = URL.createObjectURL(media)
 
       recorder = new MediaRecorder(media)
+      state.mimeType = recorder.mimeType
+
       recorder.addEventListener('dataavailable', function (ev) {
         worker.postMessage({ type: 'record.data', blob: ev.data })
       })
@@ -136,7 +174,6 @@ function renderRecorder(state) {
 }
 
 function createSwarm (id) {
-  console.log('SWARM', id)
   var swarm = webrtcSwarm(signalhub('spellcast.' + id, hubs))
   swarm.on('peer', function (peer, peerId) {
     console.log('PEER', peerId)
