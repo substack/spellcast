@@ -7,7 +7,7 @@ var hubs = [ 'https://signalhub.mafintosh.com' ]
 
 module.exports = function (self) {
   var mode = null
-  var writeQueue, writeSeq = 0
+  var feed, writeQueue, writeSeq = 0
   var swarms = {}
 
   self.addEventListener('message', function (ev) {
@@ -19,15 +19,17 @@ module.exports = function (self) {
       }, { concurrency: 10 })
       mode = 'record'
       var id = stream.publicId.toString('hex')
+      feed = stream.feed
       self.postMessage({ type: 'record.info', id: id })
-    } else if (ev.data.type === 'peer.start') {
-      var stream = core.replicate({ encrypt: false })
-      var peerId = ev.data.peerId
-      swarms[peerId] = stream
-      stream.on('data', function (buf) {
+ 
+    } else if (ev.data.type === 'peer.start' && feed) {
+      var id = ev.data.peerId
+      swarms[id] = feed.replicate({ live: true, encrypted: false })
+      swarms[id].on('data', function (buf) {
+        console.log('SEND PEER', buf.length)
         self.postMessage({
           type: 'peer.data',
-          peerId: peerId,
+          peerId: id,
           buffer: buf
         })
       })
@@ -41,16 +43,16 @@ module.exports = function (self) {
         writeQueue.push(seq, buf)
       })
     } else if (ev.data.type === 'play.stream') {
-      var stream = core.createReadStream(ev.data.peerId, {
+      var stream = core.createReadStream(ev.data.id, {
         live: true,
         start: ev.data.start,
         end: ev.data.end
       })
-      var index = ev.data.index
+      feed = stream.feed
       stream.on('data', function (buf) {
         self.postMessage({
           type: 'play.data',
-          index: index,
+          index: ev.data.index,
           buffer: buf
         })
       })

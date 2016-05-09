@@ -17,6 +17,7 @@ worker.addEventListener('message', function (ev) {
     console.log('PLAY DATA', ev.data.buffer.length)
     playStreams[ev.data.index].write(Buffer(ev.data.buffer))
   } else if (ev.data.type === 'peer.data') {
+    console.log('RECV PEER', ev.data.buffer.length)
     peers[ev.data.peerId].write(Buffer(ev.data.buffer))
   }
 })
@@ -57,25 +58,15 @@ function createPlayer (id) {
   var codec = 'video/webm; codecs="vp8"'
   var media = new MediaSource
   state.videoSource = URL.createObjectURL(media)
-  console.log('on source open', media.readyState)
   media.addEventListener('sourceopen', onopen)
-  media.addEventListener('sourceended', function () {
-    console.log('SOURCE END')
-  })
-  media.addEventListener('sourceclose', function () {
-    console.log('SOURCE CLOSE')
-  })
-
   update()
 
   worker.postMessage({ type: 'play.start', id: id })
-  createSwarm(id)
 
   function onopen (ev) {
     console.log('OPEN')
     var source = media.addSourceBuffer(codec)
     source.addEventListener('update', function (ev) {
-      console.log('UPDATE', ev)
       if (queue.length > 0 && !source.updating) {
         source.appendBuffer(queue.shift())
       }
@@ -84,7 +75,6 @@ function createPlayer (id) {
     var queue = []
     var stream = createReadStream()
     stream.pipe(through(function (buf, enc, next) {
-      console.log('APPEND', buf.length)
       if (source.updating || queue.length > 0) {
         queue.push(buf)
       } else {
@@ -92,6 +82,7 @@ function createPlayer (id) {
       }
       next()
     }))
+    createSwarm(id)
   }
 
   function createReadStream (opts) {
@@ -100,7 +91,7 @@ function createPlayer (id) {
     playStreams[index] = through()
     worker.postMessage({
       type: 'play.stream',
-      peerId: id,
+      id: id,
       start: opts.start,
       end: opts.end,
       index: index
@@ -121,7 +112,9 @@ function render (state) {
 
 function renderPlayer (state) {
   return html`<div>
-    <video width="400" height="300" src=${state.videoSource} autoplay></video>
+    <video width="400" height="300"
+      src=${state.videoSource} autoplay
+    ></video>
   </div>`
 }
 
