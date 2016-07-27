@@ -13,6 +13,7 @@
     "through2": "^2.0.1",
     "webrtc-swarm": "^2.4.0",
     "webworkify": "^1.1.0",
-    "yo-yo": "^1.1.1"
+    "yo-yo": "^1.1.1",
+    "getusermedia": "^2.0.0"
   }
 }
